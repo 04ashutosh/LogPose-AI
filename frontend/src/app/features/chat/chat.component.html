@@ -1,0 +1,148 @@
+<div class="flex h-screen bg-[#0B0F19] text-slate-100 overflow-hidden font-sans">
+  
+  <!-- Sidebar Navigation panel -->
+  <aside class="w-64 bg-[#0F172A] border-r border-[#1E293B] flex flex-col justify-between">
+    <div>
+      <div class="p-6 border-b border-[#1E293B] flex items-center justify-between">
+        <h1 class="text-xl font-bold bg-gradient-to-r from-indigo-400 to-pink-500 bg-clip-text text-transparent">
+          LogPose AI
+        </h1>
+        <button (click)="createSession()" class="text-indigo-400 hover:text-indigo-300 font-semibold text-lg">+</button>
+      </div>
+      
+      <div class="p-4 space-y-2 overflow-y-auto max-h-[70vh]">
+        @for (session of sessions(); track session.id) {
+          <div 
+            (click)="selectSession(session.id)"
+            [ngClass]="activeSessionId() === session.id ? 'bg-indigo-600 text-white' : 'hover:bg-slate-800 text-slate-400'"
+            class="p-3 rounded-lg cursor-pointer transition-all duration-200 truncate font-medium text-sm"
+          >
+            {{ session.title }}
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Sidebar footer -->
+    <div class="p-4 border-t border-[#1E293B] flex items-center justify-between">
+      <span class="text-xs text-slate-500">LogPose Navigation</span>
+      <button (click)="logout()" class="text-xs text-pink-500 hover:text-pink-400 font-semibold">Logout</button>
+    </div>
+  </aside>
+
+  <!-- Main Container Grid -->
+  <main class="flex-1 flex flex-col lg:flex-row overflow-hidden">
+    
+    <!-- Left Hand Grid Panel: Classic Chat Timeline -->
+    <section class="flex-1 flex flex-col bg-[#0B0F19] border-r border-[#1E293B]">
+      <!-- Chat Timeline Header -->
+      <div class="p-4 border-b border-[#1E293B] flex items-center justify-between bg-[#0F172A]">
+        <span class="font-semibold text-sm text-slate-400">Navigation Console</span>
+        <div class="flex items-center gap-2">
+          <span class="h-2.5 w-2.5 rounded-full" [ngClass]="isOrchestrating() ? 'bg-emerald-500 animate-pulse' : 'bg-slate-600'"></span>
+          <span class="text-xs font-semibold text-slate-400">Agent Status: {{ activeAgent() }}</span>
+        </div>
+      </div>
+
+      <!-- Chat Feed -->
+      <div class="flex-1 p-6 space-y-6 overflow-y-auto">
+        @for (msg of messages(); track $index) {
+          <div [ngClass]="msg.role === 'user' ? 'justify-end' : 'justify-start'" class="flex">
+            <div 
+              [ngClass]="msg.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-[#151D30] border border-[#1E293B] text-slate-200 rounded-tl-none'"
+              class="max-w-[80%] p-4 rounded-2xl shadow-lg space-y-2 whitespace-pre-wrap font-mono text-sm leading-relaxed"
+            >
+              @if (msg.agent_name) {
+                <span class="text-[10px] text-pink-400 uppercase tracking-widest font-bold block mb-1">
+                  {{ msg.agent_name }} @if (msg.step_name) { • {{ msg.step_name }} }
+                </span>
+              }
+              <p>{{ msg.content }}</p>
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Chat Input Area -->
+      <div class="p-4 border-t border-[#1E293B] bg-[#0F172A]">
+        <div class="flex items-center bg-[#151D30] rounded-xl border border-[#1E293B] p-2">
+          <input 
+            type="text" 
+            [(ngModel)]="userInput" 
+            (keyup.enter)="sendMessage()"
+            [disabled]="isOrchestrating()"
+            placeholder="Instruct LogPose AI (e.g. Build JWT auth module)..."
+            class="flex-1 bg-transparent border-0 outline-none text-slate-200 px-3 py-2 text-sm placeholder-slate-500"
+          />
+          <button 
+            (click)="sendMessage()"
+            [disabled]="isOrchestrating()"
+            class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-200 disabled:opacity-50"
+          >
+            Deploy
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Hand Grid Panel: Live Agent Multi-Terminal Workspace Dashboard -->
+    <section class="w-full lg:w-[480px] bg-[#090D16] flex flex-col overflow-y-auto">
+      <div class="p-4 border-b border-[#1E293B] bg-[#0F172A] flex items-center justify-between">
+        <span class="text-xs uppercase tracking-wider font-semibold text-slate-400 font-mono">Agent Pipelines</span>
+      </div>
+
+      <div class="p-6 space-y-6">
+        
+        <!-- Terminal 1: Planner Agent -->
+        <div class="bg-[#151D30] border rounded-xl overflow-hidden shadow-lg transition-all duration-300"
+             [ngClass]="activeAgent() === 'Planner Agent' ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-[#1E293B]'">
+          <div class="px-4 py-2 bg-[#0F172A] border-b border-[#1E293B] flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-300 font-mono">1. Planner Agent</span>
+            @if (activeAgent() === 'Planner Agent') { <span class="text-[9px] uppercase px-1.5 py-0.5 rounded bg-indigo-500 text-white animate-pulse">Running</span> }
+          </div>
+          <pre class="p-4 text-xs font-mono text-indigo-300 overflow-x-auto whitespace-pre-wrap max-h-48 leading-relaxed">
+            {{ agentOutputs()['Planner Agent'] || 'Waiting in queue...' }}
+          </pre>
+        </div>
+
+        <!-- Terminal 2: Architect Agent -->
+        <div class="bg-[#151D30] border rounded-xl overflow-hidden shadow-lg transition-all duration-300"
+             [ngClass]="activeAgent() === 'Architect Agent' ? 'border-pink-500 ring-1 ring-pink-500' : 'border-[#1E293B]'">
+          <div class="px-4 py-2 bg-[#0F172A] border-b border-[#1E293B] flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-300 font-mono">2. Architect Agent</span>
+            @if (activeAgent() === 'Architect Agent') { <span class="text-[9px] uppercase px-1.5 py-0.5 rounded bg-pink-500 text-white animate-pulse">Running</span> }
+          </div>
+          <pre class="p-4 text-xs font-mono text-pink-300 overflow-x-auto whitespace-pre-wrap max-h-48 leading-relaxed">
+            {{ agentOutputs()['Architect Agent'] || 'Waiting in queue...' }}
+          </pre>
+        </div>
+
+        <!-- Terminal 3: Coder Agent -->
+        <div class="bg-[#151D30] border rounded-xl overflow-hidden shadow-lg transition-all duration-300"
+             [ngClass]="activeAgent() === 'Coder Agent' ? 'border-amber-500 ring-1 ring-amber-500' : 'border-[#1E293B]'">
+          <div class="px-4 py-2 bg-[#0F172A] border-b border-[#1E293B] flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-300 font-mono">3. Coder Agent</span>
+            @if (activeAgent() === 'Coder Agent') { <span class="text-[9px] uppercase px-1.5 py-0.5 rounded bg-amber-500 text-white animate-pulse">Running</span> }
+          </div>
+          <pre class="p-4 text-xs font-mono text-amber-300 overflow-x-auto whitespace-pre-wrap max-h-48 leading-relaxed">
+            {{ agentOutputs()['Coder Agent'] || 'Waiting in queue...' }}
+          </pre>
+        </div>
+
+        <!-- Terminal 4: Reviewer Agent -->
+        <div class="bg-[#151D30] border rounded-xl overflow-hidden shadow-lg transition-all duration-300"
+             [ngClass]="activeAgent() === 'Reviewer Agent' ? 'border-emerald-500 ring-1 ring-emerald-500' : 'border-[#1E293B]'">
+          <div class="px-4 py-2 bg-[#0F172A] border-b border-[#1E293B] flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-300 font-mono">4. Reviewer Agent</span>
+            @if (activeAgent() === 'Reviewer Agent') { <span class="text-[9px] uppercase px-1.5 py-0.5 rounded bg-emerald-500 text-white animate-pulse">Running</span> }
+          </div>
+          <pre class="p-4 text-xs font-mono text-emerald-300 overflow-x-auto whitespace-pre-wrap max-h-48 leading-relaxed">
+            {{ agentOutputs()['Reviewer Agent'] || 'Waiting in queue...' }}
+          </pre>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+</div>
