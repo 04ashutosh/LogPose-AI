@@ -12,8 +12,10 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
+from uuid import UUID
+
 class UserResponse(BaseModel):
-    id: str
+    id: UUID
     email: EmailStr
 
     class Config:

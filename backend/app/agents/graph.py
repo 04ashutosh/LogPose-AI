@@ -1,5 +1,6 @@
 from typing import Dict, Any
 from langchain_ollama import ChatOllama
+from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, END
 
 from app.core.config import settings
@@ -10,14 +11,14 @@ planner_llm = ChatOllama(base_url=settings.OLLAMA_BASE_URL, model=settings.MODEL
 coder_llm = ChatOllama(base_url=settings.OLLAMA_BASE_URL, model=settings.MODEL_CODER, temperature=0.1)
 router_llm = ChatOllama(base_url=settings.OLLAMA_BASE_URL, model=settings.MODEL_ROUTER, temperature=0.1)
 
-async def send_state_event(config: Dict[str, Any], event_type: str, node: str, content: str = ""):
+async def send_state_event(config: RunnableConfig, event_type: str, node: str, content: str = ""):
     """Helper to dispatch updates to the WS client during Graph node execution."""
     callback = config.get("configurable", {}).get("websocket_callback")
     if callback:
         await callback(event_type=event_type, node=node, content=content)
 
 # Define Nodes
-async def planner_node(state: GraphState, config: Dict[str, Any]) -> Dict[str, Any]:
+async def planner_node(state: GraphState, config: RunnableConfig) -> Dict[str, Any]:
     await send_state_event(config, "node_start", "Planner Agent")
     
     prompt = (
@@ -35,7 +36,7 @@ async def planner_node(state: GraphState, config: Dict[str, Any]) -> Dict[str, A
     await send_state_event(config, "node_end", "Planner Agent", content)
     return {"planner_output": content, "active_agent": "Architect Agent"}
 
-async def architect_node(state: GraphState, config: Dict[str, Any]) -> Dict[str, Any]:
+async def architect_node(state: GraphState, config: RunnableConfig) -> Dict[str, Any]:
     await send_state_event(config, "node_start", "Architect Agent")
     
     prompt = (
@@ -52,7 +53,7 @@ async def architect_node(state: GraphState, config: Dict[str, Any]) -> Dict[str,
     await send_state_event(config, "node_end", "Architect Agent", content)
     return {"architect_output": content, "active_agent": "Coder Agent"}
 
-async def coder_node(state: GraphState, config: Dict[str, Any]) -> Dict[str, Any]:
+async def coder_node(state: GraphState, config: RunnableConfig) -> Dict[str, Any]:
     await send_state_event(config, "node_start", "Coder Agent")
     
     feedback = f"\nTake this review feedback into account to refine code:\n{state['review_feedback']}" if state.get("review_feedback") else ""
@@ -72,7 +73,7 @@ async def coder_node(state: GraphState, config: Dict[str, Any]) -> Dict[str, Any
     await send_state_event(config, "node_end", "Coder Agent", content)
     return {"coder_output": content, "active_agent": "Reviewer Agent"}
 
-async def reviewer_node(state: GraphState, config: Dict[str, Any]) -> Dict[str, Any]:
+async def reviewer_node(state: GraphState, config: RunnableConfig) -> Dict[str, Any]:
     await send_state_event(config, "node_start", "Reviewer Agent")
     
     prompt = (

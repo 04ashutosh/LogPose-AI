@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 Days
     
     # Databases
-    DATABASE_URL: str = Field(default="postgresql+asyncpg://logpose_user:logpose_password@localhost:5432/logpose_db")
+    DATABASE_URL: str = Field(default="postgresql+asyncpg://logpose_user:logpose_password@localhost:5433/logpose_db")
     REDIS_URL: str = Field(default="redis://localhost:6379")
     
     # AI Models

@@ -5,14 +5,14 @@ import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
-  selector: 'app-login',
+  selector: 'app-register',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterModule],
   template: `
     <div class="flex items-center justify-center min-h-screen bg-[#0B0F19] text-white">
       <div class="w-full max-w-md p-8 bg-[#151D30] rounded-2xl border border-[#1E293B] shadow-2xl">
         <h2 class="text-3xl font-bold text-center bg-gradient-to-r from-indigo-400 to-pink-500 bg-clip-text text-transparent mb-8">
-          Navigate Intelligence
+          Register LogPose AI
         </h2>
         
         @if (errorMessage()) {
@@ -49,19 +49,19 @@ import { AuthService } from '../../core/services/auth.service';
             [disabled]="isLoading()"
             class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-bold transition text-sm disabled:opacity-50"
           >
-            {{ isLoading() ? 'Securing passage...' : 'Login' }}
+            {{ isLoading() ? 'Registering...' : 'Create Account' }}
           </button>
         </form>
 
         <p class="mt-6 text-center text-sm text-slate-400">
-          First voyage? 
-          <a routerLink="/register" class="text-indigo-400 hover:text-indigo-300 font-semibold">Sign up here</a>
+          Already registered? 
+          <a routerLink="/login" class="text-indigo-400 hover:text-indigo-300 font-semibold">Log in here</a>
         </p>
       </div>
     </div>
   `
 })
-export class LoginComponent {
+export class RegisterComponent {
   private authService = inject(AuthService);
   private router = inject(Router);
 
@@ -74,9 +74,10 @@ export class LoginComponent {
     this.isLoading.set(true);
     this.errorMessage.set(null);
 
-    this.authService.login(this.email(), this.password()).subscribe({
+    this.authService.register(this.email(), this.password()).subscribe({
       next: () => {
-        this.router.navigate(['/chat']);
+        // Redirect directly to login page on success registration
+        this.router.navigate(['/login']);
       },
       error: (err) => {
         const detail = err.error?.detail;
@@ -85,7 +86,7 @@ export class LoginComponent {
         } else if (Array.isArray(detail)) {
           this.errorMessage.set(detail.map((e: any) => e.msg).join(', '));
         } else {
-          this.errorMessage.set('Authentication failed. Please verify credentials.');
+          this.errorMessage.set('Account registration failed.');
         }
         this.isLoading.set(false);
       }
