@@ -1,23 +1,14 @@
 import { Routes } from '@angular/router';
+import { LoginComponent } from './features/auth/login.component';
+import { RegisterComponent } from './features/auth/register.component';
+import { ChatComponent } from './features/chat/chat.component';
+import { SettingsComponent } from './core/services/settings.component'; // Import it here
 import { authGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
-  {
-    path: 'login',
-    loadComponent: () => import('./features/auth/login.component').then(m => m.LoginComponent)
-  },
-  {
-    path: 'register',
-    loadComponent: () => import('./features/auth/register.component').then(m => m.RegisterComponent)
-  },
-  {
-    path: 'chat',
-    loadComponent: () => import('./features/chat/chat.component').then(m => m.ChatComponent),
-    canActivate: [authGuard]
-  },
-  {
-    path: '',
-    redirectTo: 'chat',
-    pathMatch: 'full'
-  }
+  { path: '', redirectTo: 'login', pathMatch: 'full' },
+  { path: 'login', component: LoginComponent },
+  { path: 'register', component: RegisterComponent },
+  { path: 'chat', component: ChatComponent, canActivate: [authGuard] },
+  { path: 'settings', component: SettingsComponent, canActivate: [authGuard] } // Add this line
 ];

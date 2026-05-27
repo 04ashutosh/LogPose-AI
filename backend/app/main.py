@@ -4,7 +4,7 @@ import uvicorn
 
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.api import auth, chat
+from app.api import auth, chat, keys
 
 app = FastAPI(title=settings.PROJECT_NAME)
 
@@ -20,6 +20,7 @@ app.add_middleware(
 # Include Router Nodes
 app.include_router(auth.router, prefix=settings.API_V1_STR)
 app.include_router(chat.router, prefix=settings.API_V1_STR)
+app.include_router(keys.router, prefix=settings.API_V1_STR)
 
 @app.on_event("startup")
 async def startup_event():

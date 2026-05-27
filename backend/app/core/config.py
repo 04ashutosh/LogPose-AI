@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     
     # Security
     JWT_SECRET_KEY: str = Field(default="SUPER_SECRET_LOGPOSE_KEY_CHANGE_ME_IN_PRODUCTION")
+    ENCRYPTION_KEY: str = Field(default="LOGPOSE_AES_256_SECRET_KEY_123456") # Must be 32 bytes
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 Days
     
     # Databases

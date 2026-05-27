@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db, SessionLocal
 from app.core.security import decode_token
-from app.models.models import User, ChatSession, ChatMessage
+from app.models.models import User, ChatSession, ChatMessage, ApiKey
 from app.schemas.chat import SessionCreate, SessionResponse, MessageResponse
 from app.agents.graph import agent_graph
 
@@ -135,6 +135,20 @@ async def websocket_endpoint(websocket: WebSocket, session_id: UUID):
                     except Exception as e:
                         logger.error(f"Failed to stream websocket event: {e}")
 
+                # Extract decrypted keys from DB
+                async with SessionLocal() as db:
+                    key_result = await db.execute(
+                        select(ApiKey).filter(ApiKey.user_id == user.id)
+                    )
+                    db_keys = key_result.scalars().all()
+
+                    from app.core.encryption import decrypt_api_key
+
+                    user_api_keys = {
+                        k.provider: decrypt_api_key(k.encrypted_key)
+                        for k in db_keys
+                    }
+
                 graph_state = {
                     "user_prompt": prompt_text,
                     "messages": [{"role": "user", "content": prompt_text}],
@@ -149,7 +163,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: UUID):
 
                 result_state = await agent_graph.ainvoke(
                     graph_state,
-                    config={"configurable": {"websocket_callback": ws_callback}}
+                    config={"configurable": {"websocket_callback": ws_callback,
+                                             "api_keys": user_api_keys}}
                 )
 
                 async with SessionLocal() as db:
