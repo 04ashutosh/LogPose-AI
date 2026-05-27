@@ -82,6 +82,25 @@ async def get_session_messages(session_id: UUID, db: AsyncSession = Depends(get_
     result = await db.execute(select(ChatMessage).filter(ChatMessage.session_id == session_id).order_by(ChatMessage.created_at.asc()))
     return result.scalars().all()
 
+@router.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_session(
+    session_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Deletes a chat session and all its associated messages (via DB cascade)."""
+    result = await db.execute(
+        select(ChatSession).filter(ChatSession.id == session_id, ChatSession.user_id == user.id)
+    )
+    session = result.scalars().first()
+    
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found or unauthorized")
+        
+    await db.delete(session)
+    await db.commit()
+    return None
+
 # WebSocket Handler Endpoint
 @router.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: UUID):
@@ -115,6 +134,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: UUID):
             
             if action == "send_prompt":
                 prompt_text = payload.get("data", {}).get("prompt")
+                logger.info(f"Received prompt: {prompt_text[:80]}...")
                 if not prompt_text:
                     continue
 
@@ -122,6 +142,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: UUID):
                     user_msg = ChatMessage(session_id=session_id, role="user", content=prompt_text)
                     db.add(user_msg)
                     await db.commit()
+
 
                 async def ws_callback(event_type: str, node: str, content: str = ""):
                     try:
@@ -136,11 +157,13 @@ async def websocket_endpoint(websocket: WebSocket, session_id: UUID):
                         logger.error(f"Failed to stream websocket event: {e}")
 
                 # Extract decrypted keys from DB
+
                 async with SessionLocal() as db:
                     key_result = await db.execute(
                         select(ApiKey).filter(ApiKey.user_id == user.id)
                     )
                     db_keys = key_result.scalars().all()
+                    logger.info(f"Found {len(db_keys)} API keys for user.")
 
                     from app.core.encryption import decrypt_api_key
 
@@ -161,11 +184,13 @@ async def websocket_endpoint(websocket: WebSocket, session_id: UUID):
                     "active_agent": "Planner Agent"
                 }
 
+                logger.info("Starting agent pipeline...")
                 result_state = await agent_graph.ainvoke(
                     graph_state,
                     config={"configurable": {"websocket_callback": ws_callback,
                                              "api_keys": user_api_keys}}
                 )
+                logger.info("Agent pipeline completed.")
 
                 async with SessionLocal() as db:
                     final_content = (

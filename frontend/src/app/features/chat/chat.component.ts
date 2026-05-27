@@ -107,7 +107,14 @@ export class ChatComponent implements OnInit, OnDestroy {
         ...prev,
         [node]: `[Initiated node processing for ${node}...]\n`
       }));
+    } else if (type === 'thinking') {
+      // DeepSeek-R1 sends a single "thinking" event while reasoning internally
+      this.agentOutputs.update(prev => ({
+        ...prev,
+        [node]: `${content}\n`
+      }));
     } else if (type === 'token') {
+      // Real content tokens (empty chunks are now filtered on the backend)
       this.agentOutputs.update(prev => ({
         ...prev,
         [node]: (prev[node] || '') + content

@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, Any
 
 from langchain_ollama import ChatOllama
@@ -10,6 +11,8 @@ from langgraph.graph import StateGraph, END
 
 from app.core.config import settings
 from app.agents.state import GraphState
+
+logger = logging.getLogger("uvicorn")
 
 
 # Dynamic LLM Factory
@@ -37,7 +40,7 @@ def get_llm(preferred_provider: str, config: RunnableConfig):
 
     # Fallback to local Ollama if specific key is missing
     return ChatOllama(
-        model="deepseek-r1",
+        model="qwen2.5-coder",
         base_url=settings.OLLAMA_BASE_URL
     )
 
@@ -50,13 +53,56 @@ async def send_state_event(
 ):
     """Helper to dispatch updates to the WS client during Graph node execution."""
     callback = config.get("configurable", {}).get("websocket_callback")
-
     if callback:
-        await callback(
-            event_type=event_type,
-            node=node,
-            content=content
-        )
+        await callback(event_type=event_type, node=node, content=content)
+
+
+async def stream_llm_to_ws(llm, prompt: str, node_name: str, config: RunnableConfig) -> str:
+    """
+    Shared streaming helper for all agent nodes.
+    Handles the deepseek-r1 quirk where thinking tokens arrive as empty strings.
+    Extracts reasoning_content from additional_kwargs when available.
+    Skips empty chunks to prevent WebSocket flooding.
+    """
+    await send_state_event(config, "node_start", node_name)
+
+    content = ""
+    thinking_sent = False
+    has_streamed_content = False
+
+    async for chunk in llm.astream(prompt):
+        # Try to get the actual text content
+        text = chunk.content or ""
+
+        # DeepSeek-R1 puts reasoning in additional_kwargs during thinking phase
+        reasoning = ""
+        if hasattr(chunk, "additional_kwargs") and chunk.additional_kwargs:
+            reasoning = chunk.additional_kwargs.get("reasoning_content", "")
+
+        # If we have reasoning content, stream that as thinking tokens
+        if reasoning:
+            if not thinking_sent:
+                await send_state_event(config, "thinking", node_name, "🧠 Reasoning...")
+                thinking_sent = True
+            await send_state_event(config, "token", node_name, reasoning)
+            continue
+
+        # Skip empty chunks entirely — this prevents the WebSocket flood
+        if not text:
+            # Send ONE thinking indicator if we haven't yet
+            if not thinking_sent and not has_streamed_content:
+                await send_state_event(config, "thinking", node_name, "🧠 Model is reasoning...")
+                thinking_sent = True
+            continue
+
+        # We have real content — stream it!
+        has_streamed_content = True
+        content += text
+        await send_state_event(config, "token", node_name, text)
+
+    await send_state_event(config, "node_end", node_name, content)
+    logger.info(f"[{node_name}] Completed. Output length: {len(content)} chars")
+    return content
 
 
 # Define Nodes
@@ -64,9 +110,6 @@ async def planner_node(
     state: GraphState,
     config: RunnableConfig
 ) -> Dict[str, Any]:
-
-    await send_state_event(config, "node_start", "Planner Agent")
-
     llm = get_llm("openai", config)
 
     prompt = (
@@ -75,25 +118,7 @@ async def planner_node(
         f"Outline steps, modules, data models, and edge cases."
     )
 
-    content = ""
-
-    async for chunk in llm.astream(prompt):
-        text = chunk.content
-        content += text
-
-        await send_state_event(
-            config,
-            "token",
-            "Planner Agent",
-            text
-        )
-
-    await send_state_event(
-        config,
-        "node_end",
-        "Planner Agent",
-        content
-    )
+    content = await stream_llm_to_ws(llm, prompt, "Planner Agent", config)
 
     return {
         "planner_output": content,
@@ -105,9 +130,6 @@ async def architect_node(
     state: GraphState,
     config: RunnableConfig
 ) -> Dict[str, Any]:
-
-    await send_state_event(config, "node_start", "Architect Agent")
-
     llm = get_llm("anthropic", config)
 
     prompt = (
@@ -116,25 +138,7 @@ async def architect_node(
         f"Provide the core software design, folder tree, and interface details."
     )
 
-    content = ""
-
-    async for chunk in llm.astream(prompt):
-        text = chunk.content
-        content += text
-
-        await send_state_event(
-            config,
-            "token",
-            "Architect Agent",
-            text
-        )
-
-    await send_state_event(
-        config,
-        "node_end",
-        "Architect Agent",
-        content
-    )
+    content = await stream_llm_to_ws(llm, prompt, "Architect Agent", config)
 
     return {
         "architect_output": content,
@@ -146,9 +150,6 @@ async def coder_node(
     state: GraphState,
     config: RunnableConfig
 ) -> Dict[str, Any]:
-
-    await send_state_event(config, "node_start", "Coder Agent")
-
     llm = get_llm("groq", config)
 
     feedback = (
@@ -165,25 +166,7 @@ async def coder_node(
         f"Output executable code blocks with brief setup explanations."
     )
 
-    content = ""
-
-    async for chunk in llm.astream(prompt):
-        text = chunk.content
-        content += text
-
-        await send_state_event(
-            config,
-            "token",
-            "Coder Agent",
-            text
-        )
-
-    await send_state_event(
-        config,
-        "node_end",
-        "Coder Agent",
-        content
-    )
+    content = await stream_llm_to_ws(llm, prompt, "Coder Agent", config)
 
     return {
         "coder_output": content,
@@ -195,9 +178,6 @@ async def reviewer_node(
     state: GraphState,
     config: RunnableConfig
 ) -> Dict[str, Any]:
-
-    await send_state_event(config, "node_start", "Reviewer Agent")
-
     llm = get_llm("openai", config)
 
     prompt = (
@@ -209,18 +189,7 @@ async def reviewer_node(
         f"FEEDBACK: [Detailed review observations]"
     )
 
-    content = ""
-
-    async for chunk in llm.astream(prompt):
-        text = chunk.content
-        content += text
-
-        await send_state_event(
-            config,
-            "token",
-            "Reviewer Agent",
-            text
-        )
+    content = await stream_llm_to_ws(llm, prompt, "Reviewer Agent", config)
 
     # Simple parse status
     status = "PASS"
@@ -232,13 +201,6 @@ async def reviewer_node(
         or "FAIL" in content[:40]
     ):
         status = "FAIL"
-
-    await send_state_event(
-        config,
-        "node_end",
-        "Reviewer Agent",
-        content
-    )
 
     return {
         "review_status": status,
