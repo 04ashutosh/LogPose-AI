@@ -11,6 +11,7 @@ from langgraph.graph import StateGraph, END
 
 from app.core.config import settings
 from app.agents.state import GraphState
+from app.core.workspace import parse_and_create_files
 
 logger = logging.getLogger("uvicorn")
 
@@ -65,6 +66,8 @@ async def stream_llm_to_ws(llm, prompt: str, node_name: str, config: RunnableCon
     Skips empty chunks to prevent WebSocket flooding.
     """
     await send_state_event(config, "node_start", node_name)
+    import asyncio
+    await asyncio.sleep(0.1) # Force event loop to flush the websocket
 
     content = ""
     thinking_sent = False
@@ -110,6 +113,7 @@ async def planner_node(
     state: GraphState,
     config: RunnableConfig
 ) -> Dict[str, Any]:
+    logger.info("Executing planner_node...")
     llm = get_llm("openai", config)
 
     prompt = (
@@ -163,10 +167,29 @@ async def coder_node(
         f"You are the Coder Agent for LogPose AI. Build the complete production-grade files based on:\n"
         f"Plan: {state['planner_output']}\n"
         f"Architecture: {state['architect_output']}{feedback}\n\n"
+        f"IMPORTANT: For each file, format your output exactly like this:\n"
+        f"#### `filename.py`\n"
+        f"```python\n"
+        f"code here\n"
+        f"```\n\n"
         f"Output executable code blocks with brief setup explanations."
     )
 
     content = await stream_llm_to_ws(llm, prompt, "Coder Agent", config)
+
+    # AUTO-CREATE FILES: Parse the coder output and create real files in workspace
+    session_id = config.get("configurable", {}).get("session_id", "")
+    created_files = []
+    if session_id and content:
+        created_files = parse_and_create_files(session_id, content)
+        if created_files:
+            # Notify the frontend about created files
+            file_list = "\n".join(f"  ✅ {f}" for f in created_files)
+            await send_state_event(
+                config, "files_created", "Coder Agent",
+                f"Created {len(created_files)} files:\n{file_list}"
+            )
+            logger.info(f"[Coder] Created {len(created_files)} files in workspace {session_id}")
 
     return {
         "coder_output": content,

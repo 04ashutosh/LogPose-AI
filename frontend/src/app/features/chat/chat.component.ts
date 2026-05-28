@@ -48,6 +48,8 @@ export class ChatComponent implements OnInit, OnDestroy {
   });
   isOrchestrating = signal<boolean>(false);
 
+    workspaceFiles = signal<{path: string, size: string}[]>([]);
+
   ngOnInit() {
     this.loadSessions();
   }
@@ -87,6 +89,7 @@ export class ChatComponent implements OnInit, OnDestroy {
             this.wsService.disconnect();
             this.wsSubscription?.unsubscribe();
             this.messages.set([]);
+            this.workspaceFiles.set([]);
             this.activeSessionId.set(null);
             
             this.agentOutputs.set({
@@ -113,6 +116,8 @@ export class ChatComponent implements OnInit, OnDestroy {
     
     this.activeSessionId.set(sessionId);
     this.messages.set([]);
+    this.workspaceFiles.set([]);
+    this.loadWorkspaceFiles();
     
     // Load historical session message traces
     this.http.get<any[]>(`${this.chatUrl}/sessions/${sessionId}/messages`).subscribe(msgs => {
@@ -156,7 +161,15 @@ export class ChatComponent implements OnInit, OnDestroy {
         ...prev,
         [node]: content
       }));
+    } else if (type === 'files_created') {
+      // Coder agent created real files — refresh the file explorer
+      this.loadWorkspaceFiles();
+      this.agentOutputs.update(prev => ({
+        ...prev,
+        [node]: (prev[node] || '') + '\n\n' + content
+      }));
     } else if (type === 'graph_complete') {
+      this.loadWorkspaceFiles();
       this.isOrchestrating.set(false);
       this.activeAgent.set('Idle');
       
@@ -190,6 +203,15 @@ export class ChatComponent implements OnInit, OnDestroy {
     });
 
     this.wsService.sendMessage('send_prompt', { prompt: promptText });
+  }
+
+  loadWorkspaceFiles() {
+    const sid = this.activeSessionId();
+    if (!sid) return;
+    this.http.get<any>(`http://localhost:8000/api/v1/workspace/files/${sid}`).subscribe({
+      next: (res) => this.workspaceFiles.set(res.files),
+      error: (err) => console.error('Failed to load workspace files', err)
+    });
   }
 
   logout() {

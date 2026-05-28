@@ -188,7 +188,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: UUID):
                 result_state = await agent_graph.ainvoke(
                     graph_state,
                     config={"configurable": {"websocket_callback": ws_callback,
-                                             "api_keys": user_api_keys}}
+                                             "api_keys": user_api_keys,
+                                             "session_id": str(session_id)}}
                 )
                 logger.info("Agent pipeline completed.")
 
