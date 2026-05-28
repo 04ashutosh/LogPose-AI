@@ -75,6 +75,38 @@ export class ChatComponent implements OnInit, OnDestroy {
     });
   }
 
+  deleteSession(sessionId: string, event: Event) {
+    event.stopPropagation();
+    
+    if (confirm('Delete this session and all its messages?')) {
+      this.http.delete(`${this.chatUrl}/sessions/${sessionId}`).subscribe({
+        next: () => {
+          this.sessions.update(prev => prev.filter(s => s.id !== sessionId));
+          
+          if (this.activeSessionId() === sessionId) {
+            this.wsService.disconnect();
+            this.wsSubscription?.unsubscribe();
+            this.messages.set([]);
+            this.activeSessionId.set(null);
+            
+            this.agentOutputs.set({
+              'Planner Agent': '',
+              'Architect Agent': '',
+              'Coder Agent': '',
+              'Reviewer Agent': ''
+            });
+            
+            const remaining = this.sessions();
+            if (remaining.length > 0) {
+              this.selectSession(remaining[0].id);
+            }
+          }
+        },
+        error: (err) => console.error('Failed to delete session', err)
+      });
+    }
+  }
+
   selectSession(sessionId: string) {
     this.wsService.disconnect();
     this.wsSubscription?.unsubscribe();

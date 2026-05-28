@@ -15,9 +15,17 @@
           <div 
             (click)="selectSession(session.id)"
             [ngClass]="activeSessionId() === session.id ? 'bg-indigo-600 text-white' : 'hover:bg-slate-800 text-slate-400'"
-            class="p-3 rounded-lg cursor-pointer transition-all duration-200 truncate font-medium text-sm"
+            class="group p-3 rounded-lg cursor-pointer transition-all duration-200 font-medium text-sm flex items-center justify-between"
           >
-            {{ session.title }}
+            <span class="truncate pr-2">{{ session.title }}</span>
+            <button
+              (click)="deleteSession(session.id, $event)"
+              class="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-400 p-1 rounded hover:bg-black/20 flex-shrink-0"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+              </svg>
+            </button>
           </div>
         }
       </div>
