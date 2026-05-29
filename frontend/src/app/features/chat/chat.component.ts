@@ -5,6 +5,7 @@ import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../core/services/auth.service';
 import { WebSocketService } from '../../core/services/websocket.service';
 import { Subscription } from 'rxjs';
+import { SettingsComponent } from '../../core/services/settings.component';
 
 interface Message {
   role: string;
@@ -21,7 +22,7 @@ interface Session {
 @Component({
   selector: 'app-chat',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, SettingsComponent],
   templateUrl: './chat.component.html'
 })
 export class ChatComponent implements OnInit, OnDestroy {
@@ -37,6 +38,12 @@ export class ChatComponent implements OnInit, OnDestroy {
   activeSessionId = signal<string | null>(null);
   messages = signal<Message[]>([]);
   userInput = signal<string>('');
+  // File Editor State
+  editingFile = signal<string | null>(null);
+  editingContent = signal<string>('');
+  //Settings Model State
+  showSettings = signal<boolean>(false);
+
   
   // Real-time Agent Pipeline State tracking signals
   activeAgent = signal<string>('Idle');
@@ -216,5 +223,45 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   logout() {
     this.authService.logout();
+  }
+
+    openSettings() {
+    this.showSettings.set(true);
+  }
+
+  closeSettings() {
+    this.showSettings.set(false);
+  }
+
+  openFile(filepath: string) {
+    const sid = this.activeSessionId();
+    if (!sid) return;
+    this.http.get<any>(`http://localhost:8000/api/v1/workspace/files/${sid}/${filepath}`).subscribe({
+      next: (res) => {
+        this.editingContent.set(res.content);
+        this.editingFile.set(filepath);
+      },
+      error: (err) => console.error('Failed to read file', err)
+    });
+  }
+
+  closeEditor() {
+    this.editingFile.set(null);
+    this.editingContent.set('');
+  }
+
+  saveFile() {
+    const sid = this.activeSessionId();
+    const filepath = this.editingFile();
+    if (!sid || !filepath) return;
+    
+    this.http.put(`http://localhost:8000/api/v1/workspace/files/${sid}/${filepath}`, {
+      content: this.editingContent()
+    }).subscribe({
+      next: () => {
+        alert('File saved successfully!');
+      },
+      error: (err) => console.error('Failed to save file', err)
+    });
   }
 }

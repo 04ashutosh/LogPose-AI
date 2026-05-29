@@ -5,6 +5,7 @@ from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, END
@@ -37,6 +38,12 @@ def get_llm(preferred_provider: str, config: RunnableConfig):
         return ChatGroq(
             model="llama3-70b-8192",
             api_key=api_keys["groq"]
+        )
+
+    elif preferred_provider == "gemini" and "gemini" in api_keys:
+        return ChatGoogleGenerativeAI(
+            model="gemini-1.5-flash",
+            api_key=api_keys["gemini"]
         )
 
     # Fallback to local Ollama if specific key is missing
@@ -172,7 +179,10 @@ async def coder_node(
         f"```python\n"
         f"code here\n"
         f"```\n\n"
-        f"Output executable code blocks with brief setup explanations."
+        f"CRITICAL RULES FOR OUTPUT:\n"
+        f"1. DO NOT generate ASCII directory trees or structural diagrams.\n"
+        f"2. ONLY output files containing valid, executable source code.\n"
+        f"3. NO placeholder text inside the code block."
     )
 
     content = await stream_llm_to_ws(llm, prompt, "Coder Agent", config)

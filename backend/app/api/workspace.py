@@ -14,6 +14,9 @@ class CommandRequest(BaseModel):
     command: str
     timeout: Optional[int] = 30
 
+class FileUpdateRequest(BaseModel):
+    content: str
+
 
 @router.get("/files/{session_id}")
 async def get_workspace_files(
@@ -46,3 +49,16 @@ async def run_command(
     """Executes a command in the session workspace."""
     result = execute_command(req.session_id, req.command, req.timeout)
     return result
+
+@router.put("/files/{session_id}/{filepath:path}")
+async def update_file_content(
+    session_id: str,
+    filepath: str,
+    req: FileUpdateRequest,
+    user: User = Depends(get_current_user)
+):
+    """Updates the content of a specific file."""
+    # We reuse create_file which securely creates/overwrites the file
+    from app.core.workspace import create_file
+    create_file(session_id, filepath, req.content)
+    return {"status": "success", "path": filepath}

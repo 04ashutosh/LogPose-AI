@@ -29,6 +29,15 @@ import { ApiKeyService, ApiKey } from '../../core/services/api-keys.service';
             <button (click)="saveKey('anthropic', anthropicKey)" class="bg-indigo-600 px-4 rounded">Save</button>
           </div>
         </div>
+
+        <!-- Gemini Input -->
+        <div>
+          <label>Google Gemini API Key</label>
+          <div class="flex gap-2 mt-1">
+            <input type="password" [(ngModel)]="geminiKey" placeholder="AIzaSy..." class="bg-[#0B0F19] p-2 rounded flex-1">
+            <button (click)="saveKey('gemini', geminiKey)" class="bg-indigo-600 px-4 rounded">Save</button>
+          </div>
+        </div>
       </div>
     </div>
   `
@@ -38,6 +47,7 @@ export class SettingsComponent {
   
   openaiKey = '';
   anthropicKey = '';
+  geminiKey = '';
   
   ngOnInit() {
     this.keyService.getKeys().subscribe(keys => {
@@ -51,6 +61,8 @@ export class SettingsComponent {
        alert(`${provider} key saved securely!`);
        // clear input
        if(provider==='openai') this.openaiKey = '';
+       if(provider==='anthropic') this.anthropicKey = '';
+       if(provider==='gemini') this.geminiKey = '';
     });
   }
 }
