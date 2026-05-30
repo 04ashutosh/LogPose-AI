@@ -21,32 +21,27 @@ logger = logging.getLogger("uvicorn")
 def get_llm(preferred_provider: str, config: RunnableConfig):
     api_keys = config.get("configurable", {}).get("api_keys", {})
 
-    # Auto-Routing Logic
+    # Auto-Routing Logic (Check preferred first)
     if preferred_provider == "anthropic" and "anthropic" in api_keys:
-        return ChatAnthropic(
-            model="claude-3-5-sonnet-20240620",
-            api_key=api_keys["anthropic"]
-        )
-
+        return ChatAnthropic(model="claude-3-5-sonnet-20240620", api_key=api_keys["anthropic"])
     elif preferred_provider == "openai" and "openai" in api_keys:
-        return ChatOpenAI(
-            model="gpt-4o",
-            api_key=api_keys["openai"]
-        )
-
+        return ChatOpenAI(model="gpt-4o", api_key=api_keys["openai"])
     elif preferred_provider == "groq" and "groq" in api_keys:
-        return ChatGroq(
-            model="llama3-70b-8192",
-            api_key=api_keys["groq"]
-        )
-
+        return ChatGroq(model="llama3-70b-8192", api_key=api_keys["groq"])
     elif preferred_provider == "gemini" and "gemini" in api_keys:
-        return ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash",
-            api_key=api_keys["gemini"]
-        )
+        return ChatGoogleGenerativeAI(model="gemini-1.5-flash", api_key=api_keys["gemini"])
 
-    # Fallback to local Ollama if specific key is missing
+    # Fallback to ANY available key if preferred is missing
+    if "gemini" in api_keys:
+        return ChatGoogleGenerativeAI(model="gemini-1.5-flash", api_key=api_keys["gemini"])
+    elif "openai" in api_keys:
+        return ChatOpenAI(model="gpt-4o", api_key=api_keys["openai"])
+    elif "anthropic" in api_keys:
+        return ChatAnthropic(model="claude-3-5-sonnet-20240620", api_key=api_keys["anthropic"])
+    elif "groq" in api_keys:
+        return ChatGroq(model="llama3-70b-8192", api_key=api_keys["groq"])
+
+    # Ultimate fallback to local Ollama if NO keys are provided
     return ChatOllama(
         model="qwen2.5-coder",
         base_url=settings.OLLAMA_BASE_URL

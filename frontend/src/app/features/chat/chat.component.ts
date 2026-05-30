@@ -6,6 +6,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { WebSocketService } from '../../core/services/websocket.service';
 import { Subscription } from 'rxjs';
 import { SettingsComponent } from '../../core/services/settings.component';
+import { MonacoEditorModule } from 'ngx-monaco-editor-v2';
 
 interface Message {
   role: string;
@@ -22,7 +23,7 @@ interface Session {
 @Component({
   selector: 'app-chat',
   standalone: true,
-  imports: [CommonModule, FormsModule, SettingsComponent],
+  imports: [CommonModule, FormsModule, SettingsComponent, MonacoEditorModule],
   templateUrl: './chat.component.html'
 })
 export class ChatComponent implements OnInit, OnDestroy {
@@ -237,9 +238,20 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.showSettings.set(false);
   }
 
+  editorOptions = {theme: 'vs-dark', language: 'python'};
+
   openFile(filepath: string) {
     const sid = this.activeSessionId();
     if (!sid) return;
+
+    // Auto-detect Language
+    if (filepath.endsWith('.ts')) this.editorOptions = {...this.editorOptions, language: 'typescript'};
+    else if (filepath.endsWith('.html')) this.editorOptions = {...this.editorOptions, language: 'html'};
+    else if (filepath.endsWith('.json')) this.editorOptions = {...this.editorOptions, language: 'json'};
+    else if (filepath.endsWith('.md')) this.editorOptions = {...this.editorOptions, language: 'markdown'};
+    else if (filepath.endsWith('.css') || filepath.endsWith('.scss')) this.editorOptions = {...this.editorOptions, language: 'css'};
+    else this.editorOptions = {...this.editorOptions, language: 'python'};
+
     this.http.get<any>(`http://localhost:8000/api/v1/workspace/files/${sid}/${filepath}`).subscribe({
       next: (res) => {
         this.editingContent.set(res.content);
