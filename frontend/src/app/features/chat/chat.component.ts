@@ -43,6 +43,10 @@ export class ChatComponent implements OnInit, OnDestroy {
   editingContent = signal<string>('');
   //Settings Model State
   showSettings = signal<boolean>(false);
+  // Terminal State
+  terminalOutput = signal<string>('Welcome to LogPose Terminal. \n$');
+  terminalCommand = signal<string>('');
+  isExecuting = signal<boolean>(false);
 
   
   // Real-time Agent Pipeline State tracking signals
@@ -55,7 +59,7 @@ export class ChatComponent implements OnInit, OnDestroy {
   });
   isOrchestrating = signal<boolean>(false);
 
-    workspaceFiles = signal<{path: string, size: string}[]>([]);
+  workspaceFiles = signal<{path: string, size: string}[]>([]);
 
   ngOnInit() {
     this.loadSessions();
@@ -262,6 +266,38 @@ export class ChatComponent implements OnInit, OnDestroy {
         alert('File saved successfully!');
       },
       error: (err) => console.error('Failed to save file', err)
+    });
+  }
+
+    executeCommand() {
+    const cmd = this.terminalCommand().trim();
+    const sid = this.activeSessionId();
+    if (!cmd || !sid) return;
+
+    this.isExecuting.set(true);
+    this.terminalOutput.update(prev => prev + cmd + '\n');
+    
+    this.http.post<any>(`http://localhost:8000/api/v1/workspace/execute`, {
+      session_id: sid,
+      command: cmd
+    }).subscribe({
+      next: (res) => {
+        let out = '';
+        if (res.stdout) out += res.stdout;
+        if (res.stderr) out += `\n[ERROR] ${res.stderr}`;
+        
+        // Append output and reset for next command
+        this.terminalOutput.update(prev => prev + out + '\n$ ');
+        this.terminalCommand.set('');
+        this.isExecuting.set(false);
+        
+        // Refresh files in case the command created new files
+        this.loadWorkspaceFiles();
+      },
+      error: (err) => {
+        this.terminalOutput.update(prev => prev + `[FATAL] ${err.message}\n$ `);
+        this.isExecuting.set(false);
+      }
     });
   }
 }
