@@ -7,7 +7,7 @@ import { MonacoEditorModule, NgxMonacoEditorConfig } from 'ngx-monaco-editor-v2'
 
 // 1. Define the config so it looks for the Web Workers in the assests folder
 const monacoConfig: NgxMonacoEditorConfig = {
-  baseUrl: 'assets',
+  baseUrl: '/assets/vs',
   defaultOptions: {scrollBeyondLastLine: false},
 };
 

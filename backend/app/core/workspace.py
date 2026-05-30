@@ -100,14 +100,14 @@ def parse_and_create_files(session_id: str, coder_output: str) -> List[str]:
     """
     created_files = []
 
-    # Pattern: Match a filename header followed by a code block
-    # Supports: #### `file.py`, **`file.py`**, `file.py`:, ### file.py, etc.
+    # Pattern: Match a filename header strictly followed by a code block
+    # Supports: #### `file.py`, **`file.py`**, File: `file.py`
     pattern = re.compile(
-        r'(?:#{1,6}\s+|(?:\*\*)?)`?([a-zA-Z0-9_/\\.\-]+\.\w+)`?(?:\*\*)?'  # filename
-        r'.*?\n'                                                                # rest of header line
-        r'```\w*\n'                                                             # opening fence
-        r'(.*?)'                                                                # code content
-        r'\n```',                                                               # closing fence
+        r'(?:#{1,6}\s+|\*\*|File:\s*)`?([a-zA-Z0-9_/\\.\-]+\.\w+)`?(?:\*\*)?\s*\n'  # strict filename header
+        r'[^`]*?'                                                                 # optional intermediate text (no backticks allowed)
+        r'```\w*\n'                                                               # opening fence
+        r'(.*?)'                                                                  # code content
+        r'\n```',                                                                 # closing fence
         re.DOTALL
     )
 

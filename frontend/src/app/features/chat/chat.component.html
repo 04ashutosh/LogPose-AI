@@ -219,9 +219,10 @@
         </div>
         <div class="flex-1 w-full min-h-0 bg-[#1E1E1E]">
           <ngx-monaco-editor
-            class="w-full h-full block"
+            style="height: 100%; width: 100%; display: block;"
             [options]="editorOptions"
-            [(ngModel)]="editingContent"
+            [ngModel]="editingContent()"
+            (ngModelChange)="editingContent.set($event)"
           ></ngx-monaco-editor>
         </div>
       </div>
